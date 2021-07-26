@@ -19,13 +19,13 @@ def peakbase(f,p,type,deg=3):
     if type==1:
         rm=BaselineRemoval.BaselineRemoval(p).IModPoly()
     if type==0:
-        rm=BaselineRemoval.BaselineRemoval(p).ZhangFit()
+        rm=BaselineRemoval.BaselineRemoval(p).ZhangFit(itermax=100)
     rm=np.where(rm<0,0,rm)
     base=peakutils.baseline(rm,deg=deg)
     base=np.where(base<0,0,base)
     return rm, base
 
-def base(w,deg=None):
+def base(w,deg=None,flip=False):
     """Acquire the possible RFI with a waterfall file
         w:waterfall file
         deg: the degree of polynoimal to do a baseline fit
@@ -41,6 +41,8 @@ def base(w,deg=None):
     else:
         f=w.get_power()[0]
         p=w.get_power()[1]
+    if flip==True:
+        p=np.flip(p)
     #Different situation:
     snr=p.mean()/p.std()
     #Eliminating Edge of band
@@ -64,7 +66,7 @@ def base(w,deg=None):
     if snr>=15:
         base=splbase(f,p)
     elif snr>=6:
-        r,base=peakbase(f,p)
+        r,base=peakbase(f,p,0)
         p=r
     elif snr>=3:
         base=splbase(f,p)
@@ -77,11 +79,11 @@ def base(w,deg=None):
         p=r
     return f, p, base
 
-def intersection(w,multi=None):
+def intersection(w,multi=None,flip=False):
     if type(w) != Waterfall: #Check the file type
         print("wrong file type")
         return
-    f,p,b=base(w)
+    f,p,b=base(w,flip=flip)
     #set threshold
     maxi=np.amax(p-b)
     if multi==None:
@@ -89,49 +91,28 @@ def intersection(w,multi=None):
     if maxi>10000:
         multi=multi/10
     thres=multi*(p-b).std()
-    
     rm=p-b
-    #Determin the range above threshold
-#     intercept=[]
-#     if rm[0]>=thres:
-#         intercept.append(f[0])
-#     for i in range(1,len(rm)-1):
-#         if rm[i]==thres:
-#             intercept.append(f[i])
-#         elif (rm[i]-thres)*(rm[i+1]-thres)<=0:
-#             x_i=(thres-rm[i])*(f[i+1]-f[i])/(rm[i+1]-rm[i])+f[i]
-#             intercept.append(x_i)
     index=np.where(rm>=thres)
     return f[index]
 
 def rfi_range(w,multi=None):
-    intercept=intersection(w,multi=multi)
-    #Organize the RFI frequency range
-    i=0
+    fi=intersection(w,multi=multi)
     test=[]
-    dist=w.header['foff']
-    while i<len(intercept)-1:
-        start=intercept[i]
-        if(intercept[i+1]-start<=dist):
-            end=intercept[i+1]
-            length=len(intercept[i+1:])
-            for j in range(length):
-                if j==length-1:
-                    end=intercept[i+1:][j]
-                    i+=j+1
-                    test.append([start,end])
-                    break
-                else:
-                    if (abs(intercept[i+1:][j]-end)<=dist):
-                        end=intercept[i+1:][j]
-                    else:
-                        i+=j+1
-                        if(j==0):
-                            test.append([start,start])
-                        else:
-                            test.append([start,end])
-                        break
-        else:
-            test.append([start,start])
-            i+=1
+    flag=fi[-1]
+    while True:
+        start=fi[0]
+        if len(fi)==1:
+            end=fi[0]
+            test.append([start,end])
+            break
+        for i in range(len(fi)-1):
+            if abs(fi[i+1]-fi[i])>abs(w.header['foff']):
+                end=fi[i]#+w.header['foff']
+                fi=fi[i+1:]
+                test.append([start,end])
+                break
+            else:
+                end=fi[i+1]
+        if end==flag:
+            test.append([start,end])
     return test
