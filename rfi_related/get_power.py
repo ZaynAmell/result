@@ -1,6 +1,9 @@
 from .config import *
 from ..utils import rebin, db
 
+#This file needs to be stored in blimpy/plotting, 
+#with changes to blimpy/waterfall.py and blimpy/plotting.py 
+#according to the plotting function
 
 def get_power(wf, t=0, f_start=None, f_stop=None, logged=False, if_id=0, c=None, **kwargs):
     """ Plot frequency spectrum of a given file
