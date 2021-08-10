@@ -6,7 +6,9 @@ from scipy import interpolate
 import pandas as pd
 import peakutils
 import BaselineRemoval
-#This files require to add a get_power() function to blimpy/plotting/
+
+#This package requires to add a get_power() function to blimpy/plotting/
+
 def splbase(f,p,spl_order=None):
     if spl_order==None:
         spl_order=16
